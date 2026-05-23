@@ -3,55 +3,166 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartPSS Lite XML Viewer</title>
+    <title>SmartPSS Lite Viewer</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background: #1e1e1e; color: #fff; }
-        .container { max-width: 900px; margin: 0 auto; }
-        .upload-box { border: 2px dashed #444; padding: 20px; text-align: center; margin-bottom: 20px; border-radius: 8px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
-        .card { background: #2a2a2a; padding: 15px; border-radius: 8px; border: 1px solid #333; }
-        .video-placeholder { width: 100%; height: 150px; background: #000; display: flex; items-center: center; justify-content: center; margin-top: 10px; color: #666; font-size: 14px; }
-        input[type="file"] { display: none; }
-        .btn { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
+        body { font-family: Arial, sans-serif; margin: 0; background: #121212; color: #fff; display: flex; height: 100vh; overflow: hidden; }
+        .sidebar { width: 300px; background: #1e1e1e; border-right: 1px solid #333; display: flex; flex-direction: column; }
+        .sidebar-header { padding: 15px; border-bottom: 1px solid #333; font-weight: bold; font-size: 16px; background: #252525; }
+        .device-list { flex: 1; overflow-y: auto; padding: 10px; }
+        .device-item { padding: 10px; margin-bottom: 5px; background: #2a2a2a; border-radius: 4px; cursor: pointer; border: 1px solid transparent; transition: 0.2s; }
+        .device-item:hover { background: #333; border-color: #007bff; }
+        .device-item.active { background: #007bff; color: white; }
+        .main-view { flex: 1; display: flex; flex-direction: column; background: #0a0a0a; }
+        .video-container { flex: 1; display: flex; items-center: center; justify-content: center; background: #000; position: relative; padding: 20px; }
+        .video-box { width: 100%; max-width: 900px; aspect-ratio: 16/9; background: #151515; border: 2px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 8px; }
+        .live-indicator { background: red; color: white; padding: 3px 8px; border-radius: 3px; font-size: 12px; font-weight: bold; margin-bottom: 15px; animation: blink 1.5s infinite; }
+        .cam-title { font-size: 24px; margin-bottom: 10px; color: #fff; }
+        .cam-details { color: #888; font-family: monospace; font-size: 14px; text-align: center; line-height: 1.6; }
+        @keyframes blink { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>SmartPSS Lite XML Device Viewer</h2>
-    <div class="upload-box">
-        <label class="btn" for="xmlFile">Upload SmartPSS XML</label>
-        <input type="file" id="xmlFile" accept=".xml">
-        <p id="fileName" style="margin-top: 10px; color: #aaa;"></p>
+    <div class="sidebar">
+        <div class="sidebar-header">Devices (${devices.length})</div>
+        <div class="device-list" id="deviceList"></div>
     </div>
 
-    <div id="deviceGrid" class="grid"></div>
-</div>
+    <div class="main-view">
+        <div class="video-container">
+            <div class="video-box">
+                <div class="live-indicator" id="liveTag">LIVE</div>
+                <div class="cam-title" id="viewName">Select a camera</div>
+                <div class="cam-details" id="viewDetails">Click a device on the left to view connection parameters.</div>
+            </div>
+        </div>
+    </div>
 
 <script>
-    document.getElementById('xmlFile').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        document.getElementById('fileName').textContent = file.name;
+    // Embedded SmartPSS Lite XML Data
+    const xmlData = `<?xml version="1.0" encoding="utf-8"?>
+    <DeviceManager version="2.0">
+        <Device name="FCAM_0001" domain="4D0489CPAG09A26" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0002" domain="4D0489CPAG07D95" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0003" domain="4D0489CPAG035E9" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0004" domain="4D0489CPAG373AA" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0005" domain="4D0489CPAG0B14E" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0006" domain="4D0489CPAG0464D" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0007" domain="4D0489CPAG2E58E" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0008" domain="4D0489CPAG0B4C6" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0009" domain="4D0489CPAG2ECE0" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0010" domain="4D0489CPAG2B5F1" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0011" domain="4D0489CPAG47771" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0012" domain="4D0489CPAG19D83" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0013" domain="4D0489CPAG24AAF" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0014" domain="4D0489CPAG1221A" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0015" domain="4D0489CPAG25CF9" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0016" domain="4D0489CPAG3203F" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0017" domain="4D0489CPAG16032" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0018" domain="4D0489CPAG2C15F" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0019" domain="4D0489CPAG26332" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0020" domain="4D0489CPAG176AE" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0021" domain="4D0489CPAG19CD1" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0022" domain="4D0489CPAG4145E" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0023" domain="4D0489CPAG1D4B6" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0024" domain="4D0489CPAG48D46" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0025" domain="4D0489CPAG4470B" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0026" domain="4D0489CPAG37E91" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0027" domain="4D0489CPAG4B1EA" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0028" domain="4D0489CPAG44681" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0029" domain="4D0489CPAG403F1" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0030" domain="4D0489CPAG3A02C" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0031" domain="4D0489CPAG3D095" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0032" domain="4D0489CPAG3A04F" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0033" domain="4D0489CPAG44981" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0034" domain="4D0489CPAG4DAA6" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0035" domain="4D0489CPAG5368A" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0036" domain="4D0489CPAG53F4E" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0037" domain="4D0489CPAG65D4F" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0038" domain="4D0489CPAG5B6D0" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0039" domain="4D0489CPAG5F5E4" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0040" domain="4D0489CPAG64746" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0041" domain="4D0489CPAG64D6C" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0042" domain="4D0489CPAG5DBCC" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0043" domain="4D0489CPAG56206" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0044" domain="4D0489CPAG6408D" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0045" domain="4D0489CPAG7A695" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0046" domain="4D0489CPAG6B0F5" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0047" domain="4D0489CPAG68E9B" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0048" domain="4D0489CPAG7B7B5" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0049" domain="4D0489CPAG7FA5D" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0050" domain="4D0489CPAG79AE2" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0051" domain="4D0489CPAG69192" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0052" domain="4D0489CPAG6EB87" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0053" domain="4D0489CPAG7623C" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0054" domain="4D0489CPAG7D3A6" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0055" domain="4D0489CPAG8503F" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0056" domain="4D0489CPAG7ECC5" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0057" domain="4D0489CPAG7D7E6" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0058" domain="4D0489CPAG8979B" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0059" domain="4D0489CPAG9C991" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0060" domain="4D0489CPAG96378" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0061" domain="4D0489CPAG91582" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0062" domain="4D0489CPAG9D23C" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0063" domain="4D0489CPAG8D588" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+        <Device name="FCAM_0064" domain="4D0489CPAG9F315" port="37777" username="fcam" password="W9YE/Nwj8J/fFfS2Ay+2OVeFakkb3rrfUd1C7U7EVMkPn5lzPyLwPFnDqqQK" protocol="1" connect="19"/>
+    </DeviceManager>`;
 
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-            parseXML(evt.target.result);
-        };
-        reader.readAsText(file);
-    });
-
-    function parseXML(xmlString) {
+    // Initialization
+    window.addEventListener('DOMContentLoaded', () => {
         const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xmlString, "text/xml");
-        const devices = xmlDoc.getElementsByTagName("Device") || xmlDoc.getElementsByTagName("item"); 
-        const grid = document.getElementById('deviceGrid');
-        grid.innerHTML = '';
+        const xmlDoc = parser.parseFromString(xmlData, "text/xml");
+        const devices = xmlDoc.getElementsByTagName("Device");
+        const listContainer = document.getElementById('deviceList');
+        
+        document.querySelector('.sidebar-header').textContent = `Devices (${devices.length})`;
 
-        if (devices.length === 0) {
-            grid.innerHTML = '<p>No devices found in this XML file.</p>';
-            return;
+        // Build list elements
+        for (let i = 0; i < devices.length; i++) {
+            const name = devices[i].getAttribute("name");
+            const domain = devices[i].getAttribute("domain");
+            const port = devices[i].getAttribute("port");
+            const user = devices[i].getAttribute("username");
+
+            const item = document.createElement('div');
+            item.className = 'device-item';
+            item.textContent = name;
+            
+            // Handle clicking item to display live simulation
+            item.addEventListener('click', () => {
+                document.querySelectorAll('.device-item').forEach(el => el.classList.remove('active'));
+                item.classList.add('active');
+                updateActiveView(name, domain, port, user);
+            });
+
+            listContainer.appendChild(item);
         }
 
-        for (let i = 0; i < devices.length; i++) {
-            // Adjust tag names based on your specific SmartPSS XML structure
+        // Auto-select and display FCAM_0001 initially
+        if (devices.length > 0) {
+            listContainer.children[0].classList.add('active');
+            const first = devices[0];
+            updateActiveView(
+                first.getAttribute("name"),
+                first.getAttribute("domain"),
+                first.getAttribute("port"),
+                first.getAttribute("username")
+            );
+        }
+    });
+
+    // Function to change screen info
+    function updateActiveView(name, domain, port, user) {
+        document.getElementById('liveTag').style.display = 'block';
+        document.getElementById('viewName').textContent = name;
+        document.getElementById('viewDetails').innerHTML = `
+            Domain/IP: ${domain}<br>
+            Port: ${port}<br>
+            User: ${user}<br>
+            Status: Connecting Stream...
+        `;
+    }
+</script>
+
+</body>
+</html>
