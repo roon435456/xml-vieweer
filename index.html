@@ -5,8 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fireball IP Cam Finder</title>
     <meta name="description" content="A UNSTYLED-No UI site that google dorks for you to find public IP Cams">
+</head>
+<body>
+    <div class="container">
+        <img id="fireballImg" src="Bog_fireball.gif" alt="Fireball" onerror="this.style.display='none'; document.getElementById('errorText').style.display='block';">
+        <div id="errorText" style="display: none; color: red;">Error: Bog_fireball.gif not found</div>
+        <div class="location-text">You shoot a fireball to see... <span id="location">Tokyo, Japan</span></div>
+        <button id="searchButton" class="here-button">HERE</button>
+        <button id="refreshButton" class="refresh-button">Refresh</button>
+        <div id="results" class="hidden">
+            <p>Searching for IP cameras in <span id="searchLocation"></span>...</p>
+            <div id="cameraResults"></div>
+        </div>
+    </div>
+
     <style>
-        /* Minimal styling as requested - unstyled appearance */
+        /* Basic styling */
         body {
             font-family: monospace;
             margin: 0;
@@ -27,7 +41,7 @@
             font-size: 24px;
             margin: 20px 0;
         }
-        .here-button {
+        .here-button, .refresh-button {
             background-color: #000;
             color: #fff;
             border: none;
@@ -36,9 +50,127 @@
             font-size: 16px;
             margin: 20px 0;
         }
-        .here-button:hover {
+        .here-button:hover, .refresh-button:hover {
             background-color: #333;
         }
-        .refresh-button {
-            background-color: #000;
-            color
+        .hidden {
+            display: none;
+        }
+    </style>
+
+    <script>
+        // List of locations to randomly select from
+        const locations = [
+            "Tokyo, Japan",
+            "New York, USA",
+            "London, UK",
+            "Paris, France",
+            "Sydney, Australia",
+            "Berlin, Germany",
+            "Moscow, Russia",
+            "Beijing, China",
+            "Mumbai, India",
+            "Rio de Janeiro, Brazil",
+            "Cairo, Egypt",
+            "Toronto, Canada",
+            "Seoul, South Korea",
+            "Mexico City, Mexico",
+            "Dubai, UAE",
+            "Singapore",
+            "Rome, Italy",
+            "Barcelona, Spain",
+            "Amsterdam, Netherlands",
+            "Bangkok, Thailand"
+        ];
+
+        // Function to get a random location
+        function getRandomLocation() {
+            return locations[Math.floor(Math.random() * locations.length)];
+        }
+
+        // Function to create Google dork query for IP cameras
+        function createDorkQuery(location) {
+            // Common IP camera search patterns
+            const dorkPatterns = [
+                `inurl:/view/index.shtml ${location}`,
+                `inurl:/view/view.shtml ${location}`,
+                `intitle:"live view" ${location}`,
+                `intitle:"ip camera" ${location}`,
+                `inurl:axis-cgi/jpg/image.cgi ${location}`,
+                `inurl:"/mjpg/video.mjpg" ${location}`,
+                `inurl:"/video.cgi" ${location}`,
+                `intitle:"webcam" ${location}`
+            ];
+            
+            return dorkPatterns[Math.floor(Math.random() * dorkPatterns.length)];
+        }
+
+        // Function to simulate searching for IP cameras
+        function searchForCameras(location) {
+            const resultsDiv = document.getElementById('results');
+            const cameraResultsDiv = document.getElementById('cameraResults');
+            const searchLocationSpan = document.getElementById('searchLocation');
+            
+            // Show the results section
+            resultsDiv.classList.remove('hidden');
+            searchLocationSpan.textContent = location;
+            
+            // Clear previous results
+            cameraResultsDiv.innerHTML = '';
+            
+            // Create a simulated Google search link
+            const dorkQuery = createDorkQuery(location);
+            const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(dorkQuery)}`;
+            
+            // Create a link to the Google search
+            const searchLink = document.createElement('a');
+            searchLink.href = searchUrl;
+            searchLink.target = '_blank';
+            searchLink.textContent = `Search for IP cameras in ${location}`;
+            searchLink.style.display = 'block';
+            searchLink.style.margin = '10px 0';
+            
+            cameraResultsDiv.appendChild(searchLink);
+            
+            // Add a note about how to use the results
+            const note = document.createElement('p');
+            note.textContent = `Click the link above to search for public IP cameras in ${location}. Look for results that show live camera feeds.`;
+            note.style.fontSize = '14px';
+            note.style.marginTop = '20px';
+            
+            cameraResultsDiv.appendChild(note);
+        }
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log("Page loaded, initializing...");
+            
+            const locationSpan = document.getElementById('location');
+            const searchButton = document.getElementById('searchButton');
+            const refreshButton = document.getElementById('refreshButton');
+            
+            if (!locationSpan || !searchButton || !refreshButton) {
+                console.error("One or more required elements not found");
+                return;
+            }
+            
+            // Set initial random location
+            locationSpan.textContent = getRandomLocation();
+            
+            // Handle search button click
+            searchButton.addEventListener('click', function() {
+                const location = locationSpan.textContent;
+                searchForCameras(location);
+            });
+            
+            // Handle refresh button click
+            refreshButton.addEventListener('click', function() {
+                locationSpan.textContent = getRandomLocation();
+                document.getElementById('results').classList.add('hidden');
+            });
+            
+            console.log("Initialization complete");
+        });
+    </script>
+</body>
+</html>
