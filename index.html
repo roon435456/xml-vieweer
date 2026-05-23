@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartPSS Lite XML Viewer</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #1e1e1e; color: #fff; }
+        .container { max-width: 900px; margin: 0 auto; }
+        .upload-box { border: 2px dashed #444; padding: 20px; text-align: center; margin-bottom: 20px; border-radius: 8px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
+        .card { background: #2a2a2a; padding: 15px; border-radius: 8px; border: 1px solid #333; }
+        .video-placeholder { width: 100%; height: 150px; background: #000; display: flex; items-center: center; justify-content: center; margin-top: 10px; color: #666; font-size: 14px; }
+        input[type="file"] { display: none; }
+        .btn { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>SmartPSS Lite XML Device Viewer</h2>
+    <div class="upload-box">
+        <label class="btn" for="xmlFile">Upload SmartPSS XML</label>
+        <input type="file" id="xmlFile" accept=".xml">
+        <p id="fileName" style="margin-top: 10px; color: #aaa;"></p>
+    </div>
+
+    <div id="deviceGrid" class="grid"></div>
+</div>
+
+<script>
+    document.getElementById('xmlFile').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        document.getElementById('fileName').textContent = file.name;
+
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            parseXML(evt.target.result);
+        };
+        reader.readAsText(file);
+    });
+
+    function parseXML(xmlString) {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+        const devices = xmlDoc.getElementsByTagName("Device") || xmlDoc.getElementsByTagName("item"); 
+        const grid = document.getElementById('deviceGrid');
+        grid.innerHTML = '';
+
+        if (devices.length === 0) {
+            grid.innerHTML = '<p>No devices found in this XML file.</p>';
+            return;
+        }
+
+        for (let i = 0; i < devices.length; i++) {
+            // Adjust tag names based on your specific SmartPSS XML structure
